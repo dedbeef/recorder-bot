@@ -29,7 +29,7 @@ export class StartAnsweringMachine implements ICommand {
         channel as VoiceChannel
       );
       client.editStatus("online", {
-        name: `Answering angry dogs`, //${(channel as VoiceChannel).name}
+        name: `angry dogs (Answering)`, //${(channel as VoiceChannel).name}
         type: 2,
       });
       await m.channel.createMessage(

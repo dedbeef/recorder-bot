@@ -29,7 +29,7 @@ export class StartRecording implements ICommand {
         channel as VoiceChannel
       );
       client.editStatus("online", {
-        name: `Recording salty bois`, //${(channel as VoiceChannel).name}
+        name: `salty bois (Recording)`, //${(channel as VoiceChannel).name}
         type: 2,
       });
       await m.channel.createMessage(
