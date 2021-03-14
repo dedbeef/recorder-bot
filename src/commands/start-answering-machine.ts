@@ -6,8 +6,8 @@ import { IRecorderService } from "../@types/audio-recorder";
 import { InvalidRecorderStateError } from "../services/audio-recorder";
 
 @injectable()
-export class StartRecording implements ICommand {
-  trigger = "record";
+export class StartAnsweringMachine implements ICommand {
+  trigger = "answer";
   constructor(
     @inject(TYPES.AudioRecorder) private audioRecorder: IRecorderService
   ) {}
@@ -19,26 +19,26 @@ export class StartRecording implements ICommand {
     const voiceChannelId = m.member.voiceState.channelID;
     if (!voiceChannelId) {
       await m.channel.createMessage(
-        `${m.author.mention}, bro, you ain't in a voice channel, I can't record letters bro, I need voice bro, okay?`
+        `${m.author.mention}, bro, you ain't in a voice channel, you expect me to come in there and answer chat messages?`
       );
       return;
     }
     const channel = client.getChannel(voiceChannelId);
     try {
-      const recordId = await this.audioRecorder.startRecording(
+      const recordId = await this.audioRecorder.startAnsweringMachine(
         channel as VoiceChannel
       );
       client.editStatus("online", {
-        name: `Recording salty bois`, //${(channel as VoiceChannel).name}
+        name: `Answering angry dogs`, //${(channel as VoiceChannel).name}
         type: 2,
       });
       await m.channel.createMessage(
-        `${m.author.mention} Starting record with id : ${recordId}`
+        `${m.author.mention} I'm listening to these salty boys calling. (id : ${recordId})`
       );
     } catch (e) {
       if (e instanceof InvalidRecorderStateError) {
         await m.channel.createMessage(
-          `${m.author.mention}, I'm already recording.. Should I double-record?`
+          `${m.author.mention}, I'm already answering.. I'm not a call center homie.`
         );
       }
     }

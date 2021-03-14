@@ -9,6 +9,7 @@ import { ICommand } from "./@types/command";
 import { ICommandMatcher } from "./@types/command-matcher";
 import { CommandMatcher } from "./services/command-matcher";
 import { StartRecording } from "./commands/start-recording";
+import { StartAnsweringMachine } from "./commands/start-answering-machine";
 import { StopRecording } from "./commands/stop-recording";
 import { IRedis } from "./@types/redis";
 import { RedisService } from "./components/redis";
@@ -50,6 +51,7 @@ container
 
 // Register all commands
 container.bind<ICommand>(TYPES.Command).to(StartRecording);
+container.bind<ICommand>(TYPES.Command).to(StartAnsweringMachine);
 container.bind<ICommand>(TYPES.Command).to(StopRecording);
 
 container.bind<Pandora>(TYPES.Pandora).toConstantValue(

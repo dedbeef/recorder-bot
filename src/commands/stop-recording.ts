@@ -17,12 +17,26 @@ export class StopRecording implements ICommand {
     args: (string | number)[]
   ): Promise<void> {
     try {
-      this.audioRecorder.stopRecording();
+      var errorStopRecording = false;
+      try {
+        this.audioRecorder.stopRecording();
+      } catch(e) {
+        errorStopRecording = true;
+      }
+      var errorStopAnswering = false;
+      try {
+        this.audioRecorder.stopAnsweringMachine();
+      } catch(e) {
+        errorStopAnswering = true;
+      }
+      if(errorStopRecording && errorStopAnswering)
+        throw new Error("Not recording or answering");
+
       client.editStatus("online", null);
     } catch (e) {
       if (e instanceof InvalidRecorderStateError) {
         await m.channel.createMessage(
-          `${m.author.mention} But I'm not recording`
+          `${m.author.mention}, ah, don't think I'm recording or answering?`
         );
       }
     }

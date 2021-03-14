@@ -4,6 +4,8 @@ type AccurateTime = [number, number];
 
 export interface IRecorderService {
   startRecording(voiceChannel: VoiceChannel): Promise<string>;
+  startAnsweringMachine(voiceChannel: VoiceChannel): Promise<string>;
+  stopAnsweringMachine(): AccurateTime;
   stopRecording(): AccurateTime;
 }
 

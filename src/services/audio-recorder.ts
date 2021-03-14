@@ -17,6 +17,11 @@ export class InvalidRecorderStateError extends Error {}
 export class AudioRecorder implements IRecorderService {
   private static readonly MAX_PACKETS_QUEUE_LENGTH = 16;
   private isRecording = false;
+  private static readonly STOP_AFTER_SILENCE_TIME = 5000;
+  private static readonly PHONE_BOT_USERNAME = "Digits";
+  private isWaitingForPhoneBot = true;
+  private lastHeardUserVoiceAt = 0;
+  private isAnsweringMachine = false;
   private voiceChannel: VoiceChannel;
   private voiceConnection: VoiceConnection;
   private voiceReceiver: VoiceDataStream;
@@ -61,6 +66,21 @@ export class AudioRecorder implements IRecorderService {
     return this.voiceChannel.join({ opusOnly: true });
   }
 
+  stopAnsweringMachine(): AccurateTime {
+    if (!this.isAnsweringMachine) throw new InvalidRecorderStateError("Not an answering machine");
+    clearInterval(this.pingProcess);
+    this.voiceReceiver.off("data", this.adaptChunk);
+    this.voiceChannel.leave();
+    this.flushRemainingData();
+    this.multiTracksEncoder.closeStreams();
+    const startTime = this.startTime;
+    this.resetToBlankState();
+    this.isAnsweringMachine = false;
+    // we always want to be answering or recording
+    this.startAnsweringMachine(this.voiceChannel);
+    return startTime;
+  }
+
   stopRecording(): AccurateTime {
     if (!this.isRecording) throw new InvalidRecorderStateError("Not recording");
     clearInterval(this.pingProcess);
@@ -71,6 +91,8 @@ export class AudioRecorder implements IRecorderService {
     const startTime = this.startTime;
     this.resetToBlankState();
     this.isRecording = false;
+    // we always want to be answering or recording
+    this.startRecording(this.voiceChannel);
     return startTime;
   }
 
@@ -122,9 +144,41 @@ export class AudioRecorder implements IRecorderService {
     }
   }
 
+  async startAnsweringMachine(voiceChannel: VoiceChannel): Promise<string> {
+    if (this.isAnsweringMachine)
+      throw new InvalidRecorderStateError("Already an answering machine");
+    if(this.isRecording)
+      this.stopRecording()
+    this.isWaitingForPhoneBot = true;
+    this.isRecording = false;
+    this.isAnsweringMachine = true;
+    const recordId = String(~~(Math.random() * 1000000000));
+    this.startTime = hrtime();
+    this.voiceChannel = voiceChannel;
+    const guild = this.voiceChannel.guild;
+    this.multiTracksEncoder.initStreams(recordId, {
+      guild: `${guild.name}#${guild.id}`,
+      channel: `${this.voiceChannel.name}#${this.voiceChannel.id}`,
+    });
+    this.voiceConnection = await this.joinVoiceChannel();
+    //this.voiceConnection.play(resolve(__dirname, "../assets/welcome.opus"));
+    //this.voiceConnection.stopPlaying();
+    this.voiceReceiver = this.voiceConnection.receive("opus");
+    this.pingProcess = setInterval(
+      () => this.heartbeat(),
+      AudioRecorder.PING_INTERVAL
+    );
+    this.voiceReceiver.on("data", (c, u, t) => this.adaptChunk(c, u, t));
+    return recordId;
+  }
+
   async startRecording(voiceChannel: VoiceChannel): Promise<string> {
     if (this.isRecording)
       throw new InvalidRecorderStateError("Already recording");
+    if(this.isAnsweringMachine)
+      this.stopAnsweringMachine()
+    this.isWaitingForPhoneBot = true;
+    this.isAnsweringMachine = false;
     this.isRecording = true;
     const recordId = String(~~(Math.random() * 1000000000));
     this.startTime = hrtime();
@@ -135,8 +189,8 @@ export class AudioRecorder implements IRecorderService {
       channel: `${this.voiceChannel.name}#${this.voiceChannel.id}`,
     });
     this.voiceConnection = await this.joinVoiceChannel();
-    this.voiceConnection.play(resolve(__dirname, "../assets/welcome.opus"));
-    this.voiceConnection.stopPlaying();
+    //this.voiceConnection.play();//resolve(__dirname, "../assets/welcome.opus"));
+    //this.voiceConnection.stopPlaying();
     this.voiceReceiver = this.voiceConnection.receive("opus");
     this.pingProcess = setInterval(
       () => this.heartbeat(),
@@ -159,6 +213,24 @@ export class AudioRecorder implements IRecorderService {
     const member = this.voiceChannel.guild.members.get(userId);
     // Also abort if member is not found
     if (!member) return;
+    
+    if(member.username == AudioRecorder.PHONE_BOT_USERNAME)
+    {
+      this.lastHeardUserVoiceAt = timestamp;
+      this.isWaitingForPhoneBot = false;
+    }
+    else if(this.lastHeardUserVoiceAt - timestamp > AudioRecorder.STOP_AFTER_SILENCE_TIME)
+    {
+      if(this.isRecording) {
+        this.stopRecording();
+      } else if(this.isAnsweringMachine) {
+        this.stopAnsweringMachine();
+      }
+    }
+
+    if(this.isWaitingForPhoneBot)
+      return;
+    
     return this.onReceive(member.user, newChunk);
   }
 
